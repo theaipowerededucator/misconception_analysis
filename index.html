@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Misconception Analysis Tool</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .loader {
+            border: 5px solid #f3f3f3;
+            border-radius: 50%;
+            border-top: 5px solid #3498db;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <div id="loader-container" class="fixed inset-0 bg-white/80 z-50 flex justify-center items-center">
+        <div class="loader"></div>
+    </div>
+
+    <div id="app-container" class="container mx-auto p-4 md:p-8 hidden">
+        <header class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-gray-800">Misconception Analysis Tool</h1>
+            <p class="text-lg text-gray-600 mt-2">Analyzing student test results to identify and address common misconceptions.</p>
+        </header>
+
+        <div class="flex justify-between items-center mb-6">
+            <button id="prev-btn" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed">Previous</button>
+            <div class="flex items-center space-x-2">
+                <label for="question-select" class="text-lg font-medium">Go to Question:</label>
+                <select id="question-select" class="p-2 border rounded-lg shadow-sm"></select>
+            </div>
+            <button id="next-btn" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-all duration-200">Next</button>
+        </div>
+
+        <div class="bg-white p-6 rounded-2xl shadow-lg">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <!-- Question Display -->
+                <div id="question-display" class="border-r-0 md:border-r md:pr-8 border-gray-200">
+                    <h2 class="text-2xl font-bold mb-4" id="question-title"></h2>
+                    <div id="question-content" class="text-lg bg-gray-50 p-4 rounded-lg"></div>
+                </div>
+
+                <!-- Misconception Analysis -->
+                <div id="analysis-display">
+                    <h2 class="text-2xl font-bold mb-4">Misconception Analysis</h2>
+                    <div id="analysis-content" class="space-y-4"></div>
+                </div>
+            </div>
+            <!-- Easy Win Section -->
+            <div class="mt-6 border-t pt-6">
+                <h3 class="text-xl font-bold text-indigo-600 mb-3">💡 Easy Win Reteaching Idea</h3>
+                <div id="easy-win-content" class="text-lg bg-indigo-50 p-4 rounded-lg"></div>
+            </div>
+        </div>
+
+        <div class="mt-8 text-center">
+            <button id="export-btn" class="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-lg shadow-xl transition-all duration-200 text-lg">
+                Export Re-teaching Plan (Top 4 Misconceptions)
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const itemAnalysisData = [];
+
+        // This object maps keywords in misconceptions to specific, actionable teaching tips.
+        const easyWinStrategies = {
+            'repeated fraction addition': { tip: "Warm-up: Show students 3 groups of 2 apples. Ask for the multiplication equation (3 x 2 = 6). Then show 3 groups of 1/4 pizza slices. Ask for the multiplication equation (3 x 1/4 = 3/4). Connect the concepts directly." },
+            'multiplication of decimals with addition': { tip: "Homework: Create a T-chart. On one side, solve 0.5 + 0.5. On the other, solve 0.5 x 0.5. Have students draw hundredths grids to model both problems to see the difference." },
+            'reverses x and y': { tip: "Warm-up: Use the mnemonic 'You have to walk along the hall (x-axis) before you can go up the stairs (y-axis).' Have students plot 5 points, saying the mnemonic to themselves for each point." },
+            'multiplying by 6': { tip: "Homework: Provide a 'y = 6x' table with some 'x' values and some 'y' values missing. Students must work forwards (multiplying) and backwards (dividing) to complete it." },
+            'digits after the decimal': { tip: "Warm-up: Ask 'Which is worth more, 7 dimes or 12 pennies?' Connect this to comparing 0.7 and 0.12. Emphasize that the first digit after the decimal (tenths) is the most important." },
+            'place value error during division': { tip: "Warm-up: 'About how many times does 30 go into 90?' (3). 'So, about how many times should 30 go into 97.5?' (A little more than 3). Use this estimation to check if the answer '32.5' or '3.25' makes more sense." },
+            'congruent and parallel': { tip: "Homework: Give students a sheet with 4 shapes. Have them use a red crayon to trace all pairs of parallel sides and a blue crayon to mark all pairs of congruent sides." },
+            'dots (players) instead of the values': { tip: "Warm-up: Show a simple dot plot. Ask two questions: 'How many players practiced for 4 hours?' (Answer is the number of dots). 'What is the range of practice times?' (Answer is subtracting values on the line). Discuss the difference." },
+            'adds the dimensions': { tip: "Warm-up: Give students 12 sugar cubes. Ask them to build as many different rectangular prisms as they can and write down the dimensions for each (e.g., 2x2x3, 1x2x6). Reinforces that volume comes from multiplication." },
+            'dividing a whole number by a fraction': { tip: "Homework: Ask students to draw a model for two problems: 'Share 6 cookies among 3 friends' (6 ÷ 3) and 'How many 1/3-size pieces can you cut from 6 cookies?' (6 ÷ 1/3). Compare the drawings and answers." },
+            'subtracting only one width': { tip: "Warm-up: Draw a rectangle on the board with the perimeter and one side length given. Ask students to label ALL four side lengths before trying to solve for the missing length. This makes the 'two widths' concept visible." },
+            'misplaces the decimal point': { tip: "Homework: Give students 5 multiplication problems with decimals. Their only task is to predict how many decimal places will be in the answer. Don't solve, just predict. (e.g., 1.2 x 1.23 -> 3 decimal places)." },
+            'rounding numbers before subtracting': { tip: "Warm-up: Give a problem like 501 - 199. Have students solve it exactly, then solve it by rounding to the nearest hundred. Discuss why estimation is useful." },
+            '"gross income" and "net income"': { tip: "Warm-up: Create a simple scenario: 'You earn $10 for chores (gross income). You have to give your parents $1 for supplies (deduction). How much is your take-home pay (net income)?'" },
+            'visual representation of division': { tip: "Homework: Provide a hundredths grid representing 1.50. Ask students to circle 3 equal groups. 'What is the value of each group?' This visually reinforces division." },
+            'x-axis, y-axis, x-coordinate': { tip: "Warm-up: Label a large coordinate plane in the classroom. Have students take turns standing at the 'origin', walking along the 'x-axis', and pointing to a specific 'y-coordinate'." },
+            'order of operations (pemdas)': { tip: "Homework: Give students a multi-step expression and ask them to only circle the part they would do first, then pass the paper. The next student circles the next part. Continue until the expression is fully evaluated." },
+            'prime and composite': { tip: "Warm-up: Give students a number like 12 and ask 'How many different ways can you multiply to get 12?' (1x12, 2x6, 3x4). Then give them 13 and ask the same question. Use this to define prime (only 1 way) and composite (more than 1 way)." },
+            'fractions and decimals to add': { tip: "Warm-up: Use a number line with both fractions (e.g., 1/4, 1/2, 3/4) and decimals (0.25, 0.5, 0.75) marked. Ask students to match equivalent values before attempting any addition." },
+            'rounding rules': { tip: "Homework: Create a number line from 124.5 to 124.6. Have students plot numbers like 124.55, 124.51, and 124.58 to visually see which end they are closer to." },
+            'additive relationship': { tip: "Warm-up: Create two T-charts. One with the rule y = x + 5 and one with y = 5x. Have students fill out both and describe in words how the 'y' value changes in each table." },
+            'part-whole relationship': { tip: "Warm-up: Use a simple bar model. 'A string is 10 inches long (whole). I cut off a 3-inch piece (part). What equation finds the leftover part?' (10 - 3 = z or 3 + z = 10)." },
+            'distributive property': { tip: "Homework: Give students an expression like 5 x (10 + 2). Have them solve it two ways: using order of operations, and by 'distributing' (5x10 + 5x2). Discuss why both methods yield the same result." },
+            'rounds the answer up instead of down': { tip: "Warm-up: Pose a simple problem: 'I have 10 cookies and want to give 3 cookies to each friend. How many friends can I *fully* give 3 cookies to?' Discuss why the answer is 3, not 3.33 or 4." },
+            'default': { tip: "Review the vocabulary and steps for this type of problem. Work through one similar example together as a class, asking students to guide the process." }
+        };
+
+        function processData() {
+            const data = [
+                { questionNumber: 1, questionSummary: "Create an equation (e.g., 2 x 5/8 = 10/8) that represents the visual model of two shaded figures, each showing 5/8.", correctAnswer: 'DRAG-AND-DROP 2/2', correctPercentage: 54.36, distractors: [{ choice: 'DRAG-AND-DROP 0/2', percentage: 34.23, misconception: 'Struggles to connect the visual model of repeated fraction addition to multiplication.' }, { choice: 'DRAG-AND-DROP 1/2', percentage: 11.41, misconception: 'Shows partial understanding, possibly identifying the fraction but not the multiplier.' }] },
+                { questionNumber: 2, questionSummary: "From four options, identify the hundredths model that correctly represents the equation 0.7 x 0.7 = 0.49.", correctAnswer: 'C', correctPercentage: 66.44, distractors: [{ choice: 'A', percentage: 14.77, misconception: 'Confuses multiplication of decimals with addition (0.7 + 0.7 = 1.4).' }, { choice: 'B', percentage: 11.41, misconception: 'Misinterprets the hundredths grid, possibly by counting rows/columns incorrectly.' }] },
+                { questionNumber: 3, questionSummary: "Select the graph that correctly plots the (x,y) coordinate pairs from the given table: (7,2), (5,9), (8,4).", correctAnswer: 'C', correctPercentage: 74.5, distractors: [{ choice: 'A', percentage: 12.08, misconception: 'Reverses x and y coordinates when plotting points.' }] },
+                { questionNumber: 4, questionSummary: "Complete the input-output table for the equation y = 6x by dragging the correct values into the empty boxes.", correctAnswer: 'DRAG-AND-DROP 2/2', correctPercentage: 40.27, distractors: [{ choice: 'DRAG-AND-DROP 0/2', percentage: 34.23, misconception: 'Makes calculation errors when multiplying by 6.' }, { choice: 'DRAG-AND-DROP 1/2', percentage: 25.5, misconception: 'Partial understanding; correctly calculates some values but not all.' }] },
+                { questionNumber: 5, questionSummary: "Compare four decimal numbers (42.5, 42, 42.63, 41.172) and select the option that shows them ordered correctly from greatest to least.", correctAnswer: 'D', correctPercentage: 43.62, distractors: [{ choice: 'A', percentage: 26.17, misconception: 'Orders numbers based on the number of digits after the decimal.' }, { choice: 'C', percentage: 24.83, misconception: 'Orders from least to greatest instead of greatest to least.' }] },
+                { questionNumber: 6, questionSummary: "Laila feeds her dog a total of 97.5 ounces of food over 30 days. How many ounces does she feed the dog each day?", correctAnswer: 'B', correctPercentage: 55.7, distractors: [{ choice: 'A', percentage: 21.48, misconception: 'Makes a place value error during division, likely misplacing the decimal point.' }, { choice: 'C', percentage: 19.46, misconception: 'Calculation error in division.' }] },
+                { questionNumber: 7, questionSummary: "Using the Venn diagram, identify which shape belongs to 'Group 1' (at least one pair of congruent sides) but NOT 'Group 2' (at least one pair of parallel sides).", correctAnswer: 'B', correctPercentage: 35.57, distractors: [{ choice: 'D', percentage: 28.86, misconception: 'Confuses the definitions of congruent and parallel sides.' }, { choice: 'C', percentage: 20.13, misconception: 'Selects a shape that fits in both groups, not understanding the "BUT NOT" condition.' }, { choice: 'A', percentage: 15.44, misconception: 'Selects a shape that fits in both groups (square), failing to exclude Group 2.' }] },
+                { questionNumber: 8, questionSummary: "From the dot plot showing hours practiced, find the difference between the greatest and least number of hours.", correctAnswer: 'C', correctPercentage: 54.36, distractors: [{ choice: 'A', percentage: 22.15, misconception: 'Subtracts the number of dots (players) instead of the values on the number line.' }, { choice: 'B', percentage: 13.42, misconception: 'Adds the greatest and least values instead of finding the difference.' }] },
+                { questionNumber: 9, questionSummary: "Calculate the volume of a rectangular prism with dimensions 2 in, 4 in, and 2 in.", correctAnswer: 'D', correctPercentage: 73.15, distractors: [{ choice: 'A', percentage: 11.41, misconception: 'Adds the dimensions instead of multiplying them to find the volume.' }] },
+                { questionNumber: 10, questionSummary: "Trisha runs 3 miles on a 1/4 mile track. Create an equation to find the number of laps she runs.", correctAnswer: 'DRAG-AND-DROP 2/2', correctPercentage: 13.42, distractors: [{ choice: 'DRAG-AND-DROP 0/2', percentage: 66.44, misconception: 'Confuses the operation for dividing a whole number by a fraction (e.g., multiplies instead).' }, { choice: 'DRAG-AND-DROP 1/2', percentage: 20.13, misconception: 'Partial understanding, may set up one part of the equation correctly.' }] },
+                { questionNumber: 11, questionSummary: "The perimeter of a rectangular tablecloth is 320 inches and the width is 70 inches. What is the length?", correctAnswer: 'C', correctPercentage: 21.48, distractors: [{ choice: 'A', percentage: 55.03, misconception: 'Calculates length by subtracting only one width from the perimeter (320-70) instead of two widths.' }, { choice: 'B', percentage: 14.77, misconception: 'Divides the perimeter by 2, but then fails to subtract the width.' }] },
+                { questionNumber: 12, questionSummary: "What is the value of 1.5 x 1.12?", correctAnswer: 'A', correctPercentage: 67.11, distractors: [{ choice: 'D', percentage: 16.78, misconception: 'Correctly multiplies the digits but misplaces the decimal point in the final product.' }] },
+                { questionNumber: 13, questionSummary: "Jar X has 192.6 mL and Jar Y has 705.2 mL. Approximately how many more mL does Jar Y have than Jar X?", correctAnswer: 'C', correctPercentage: 61.74, distractors: [{ choice: 'D', percentage: 21.48, misconception: 'Makes an error when rounding numbers before subtracting.' }, { choice: 'B', percentage: 13.42, misconception: 'Makes a calculation error in subtraction.' }] },
+                { questionNumber: 14, questionSummary: "Rosa's salary is $450 (gross income) and her take-home pay is $385. Complete the statement describing her take-home pay as net income.", correctAnswer: 'INLINE CHOICE 2/2', correctPercentage: 33.56, distractors: [{ choice: 'INLINE CHOICE 1/2', percentage: 36.24, misconception: 'Confuses the financial literacy terms "gross income" and "net income".' }, { choice: 'INLINE CHOICE 0/2', percentage: 30.2, misconception: 'Does not understand the relationship between gross pay, deductions, and net pay.' }] },
+                { questionNumber: 15, questionSummary: "Which hundredths model best represents $1.20 divided into 4 equal stacks of $0.30?", correctAnswer: 'B', correctPercentage: 51.68, distractors: [{ choice: 'A', percentage: 24.83, misconception: 'Misinterprets the visual representation of division on a grid.' }, { choice: 'D', percentage: 12.75, misconception: 'Selects a model showing multiplication instead of division.' }] },
+                { questionNumber: 16, questionSummary: "Match vocabulary terms (y-axis, x-coordinate, origin) to their descriptions on a coordinate grid.", correctAnswer: 'DRAG-AND-DROP 2/2', correctPercentage: 10.74, distractors: [{ choice: 'DRAG-AND-DROP 0/2', percentage: 67.11, misconception: 'Has a fundamental confusion between the definitions of x-axis, y-axis, x-coordinate, and y-coordinate.' }, { choice: 'DRAG-AND-DROP 1/2', percentage: 22.15, misconception: 'Correctly identifies one term but confuses the others.' }] },
+                { questionNumber: 17, questionSummary: "What is the value of the expression 2 x [30 - 20 ÷ (5 x 2)]?", correctAnswer: 'D', correctPercentage: 45.64, distractors: [{ choice: 'A', percentage: 22.82, misconception: 'Does not follow order of operations (PEMDAS), likely performing addition/subtraction before division.' }, { choice: 'B', percentage: 17.45, misconception: 'Performs operations from left to right, ignoring parentheses.' }, { choice: 'C', percentage: 14.09, misconception: 'Makes an error in the innermost parenthesis calculation.' }] },
+                { questionNumber: 18, questionSummary: "Miri has 3 pies, and each pie is cut into 1/6 slices. How many total slices of pie does Miri have?", correctAnswer: 'A', correctPercentage: 38.26, distractors: [{ choice: 'B', percentage: 36.24, misconception: 'Incorrectly divides the whole number by the denominator (3/6) instead of multiplying.' }, { choice: 'C', percentage: 22.15, misconception: 'Incorrectly sets up the problem, possibly as 3 x 1/6 instead of 3 ÷ 1/6.' }] },
+                { questionNumber: 19, questionSummary: "What is the value of the expression 1/12 + 1/5 + 3/10?", correctAnswer: 'D', correctPercentage: 30.87, distractors: [{ choice: 'A', percentage: 44.3, misconception: 'Adds numerators and denominators without finding a common denominator.' }, { choice: 'B', percentage: 22.15, misconception: 'Finds a common denominator for only two of the fractions.' }] },
+                { questionNumber: 20, questionSummary: "A number is rounded to the nearest tenth as 124.6. Select the TWO numbers that could have been the original number.", correctAnswer: 'B,E', correctPercentage: 33.56, distractors: [{ choice: 'B,D', percentage: 10.74, misconception: 'Misunderstands rounding rules when the hundredths digit is 5.' }] },
+                { questionNumber: 21, questionSummary: "Which graph contains points that follow the rule y = x + 4.5?", correctAnswer: 'C', correctPercentage: 20.81, distractors: [{ choice: 'A', percentage: 25.5, misconception: 'Misinterprets the additive relationship y = x + 4.5.' }, { choice: 'B', percentage: 27.52, misconception: 'Makes calculation errors when checking points on the graph.' }, { choice: 'D', percentage: 26.17, misconception: 'Identifies a multiplicative relationship instead of an additive one.' }] },
+                { questionNumber: 22, questionSummary: "How many composite numbers are in the list: 51, 52, 53, 54, 55?", correctAnswer: 'A', correctPercentage: 23.49, distractors: [{ choice: 'D', percentage: 35.57, misconception: 'Confuses the definitions of prime and composite numbers, likely identifying 51 as prime.' }, { choice: 'C', percentage: 30.2, misconception: 'Misses one or more composite numbers in the list.' }] },
+                { questionNumber: 23, questionSummary: "Easton biked 1/4 mile on Monday, 0.75 miles on Wednesday, and 5/8 miles on Friday. What is the total distance he biked?", correctAnswer: 'TEXT ENTRY 1/1', correctPercentage: 22.15, distractors: [{ choice: 'TEXT ENTRY 0/1', percentage: 77.85, misconception: 'Struggles to convert between fractions and decimals to add, or makes errors when adding fractions with unlike denominators.' }] },
+                { questionNumber: 24, questionSummary: "Create a stem-and-leaf plot that correctly represents the given set of soccer win data.", correctAnswer: 'B', correctPercentage: 57.72, distractors: [{ choice: 'A', percentage: 18.79, misconception: 'Incorrectly organizes the leaves for a given stem.' }, { choice: 'C', percentage: 14.09, misconception: 'Does not understand how to group data by the "stem".' }] },
+                { questionNumber: 25, questionSummary: "Roberto spends $29.77 on 13 gallons of gas for his car. How much does each gallon of gas cost?", correctAnswer: 'A', correctPercentage: 73.15, distractors: [{ choice: 'B', percentage: 10.07, misconception: 'Makes an error in the process of long division with decimals.' }] },
+                { questionNumber: 26, questionSummary: "Three customers at a store each use a coupon for $5 off. Which graph could represent the total cost before the coupon (x) and after the coupon (y)?", correctAnswer: 'B', correctPercentage: 50.34, distractors: [{ choice: 'A', percentage: 22.15, misconception: 'Misinterprets the relationship y = x - 5 on a graph.' }, { choice: 'D', percentage: 14.77, misconception: 'Selects a graph showing a multiplicative relationship.' }] },
+                { questionNumber: 27, questionSummary: "Sarah has 1/5 of a cake and shares her fraction of the cake equally with her friend (divides by 2). Create an equation that represents this situation.", correctAnswer: 'DRAG-AND-DROP 2/2', correctPercentage: 20.81, distractors: [{ choice: 'DRAG-AND-DROP 0/2', percentage: 54.36, misconception: 'Confuses the operation for dividing a fraction by a whole number.' }, { choice: 'DRAG-AND-DROP 1/2', percentage: 24.83, misconception: 'Partial understanding, may misinterpret the visual model.' }] },
+                { questionNumber: 28, questionSummary: "Classify the given triangle XYZ as acute, equiangular, obtuse, or right.", correctAnswer: 'C', correctPercentage: 38.26, distractors: [{ choice: 'A', percentage: 47.65, misconception: 'Struggles to visually identify an obtuse angle (greater than 90 degrees) and mistakes it for an acute angle.' }] },
+                { questionNumber: 29, questionSummary: "A list of numbers (4.76, 4.8, 4.753, 4.801) will be ordered from least to greatest. Which number should be listed third?", correctAnswer: 'B', correctPercentage: 52.35, distractors: [{ choice: 'C', percentage: 23.49, misconception: 'Makes an error comparing decimals with different numbers of digits (e.g., 4.8 vs 4.753).' }, { choice: 'A', percentage: 16.78, misconception: 'Ignores place value, comparing 8 to 76.' }] },
+                { questionNumber: 30, questionSummary: "Jeremy has an 84-inch string. He cuts 4 pieces from the string that are each 18 inches long. Which equation can be used to find z, the length of the leftover string?", correctAnswer: 'C', correctPercentage: 24.83, distractors: [{ choice: 'A', percentage: 34.9, misconception: 'Incorrectly sets up the part-whole relationship in the equation.' }, { choice: 'D', percentage: 32.21, misconception: 'Chooses division instead of addition for the final step.' }] },
+                { questionNumber: 31, questionSummary: "An expression is shown: 6[2 + (1.7 x 2.3)] + 39. Which of the given expressions is equivalent?", correctAnswer: 'A', correctPercentage: 33.56, distractors: [{ choice: 'D', percentage: 21.48, misconception: 'Violates order of operations by adding before multiplying inside the brackets.' }, { choice: 'B', percentage: 12.08, misconception: 'Incorrectly applies the distributive property.' }] },
+                { questionNumber: 32, questionSummary: "Select the TWO rectangular prisms from the options that have a volume of 24 cubic centimeters.", correctAnswer: 'A,D', correctPercentage: 51.68, distractors: [{ choice: 'A,D,E*', percentage: 13.42, misconception: 'Makes a calculation error when finding the volume (L x W x H) for one of the prisms.' }] },
+                { questionNumber: 33, questionSummary: "A farmer has 1,850 broccoli seeds to plant in rows of 40. What is the greatest number of *complete* rows the farmer can plant?", correctAnswer: 'D', correctPercentage: 65.1, distractors: [{ choice: 'A', percentage: 14.09, misconception: 'Correctly divides but incorrectly rounds the answer up instead of down for "complete rows".' }] },
+                { questionNumber: 34, questionSummary: "The bar graph shows park visitors for 5 days. The number of visitors on Wednesday was half the number on Friday. How many visitors were there on Wednesday?", correctAnswer: 'A', correctPercentage: 80.54, distractors: [{ choice: 'B', percentage: 12.08, misconception: 'Misreads the value for Friday from the bar graph scale.' }] }
+            ];
+            itemAnalysisData.length = 0;
+            itemAnalysisData.push(...data);
+        }
+
+        let currentQuestionIndex = 0;
+
+        function renderQuestion() {
+            const question = itemAnalysisData[currentQuestionIndex];
+            document.getElementById('question-title').innerText = `Question ${question.questionNumber}`;
+            
+            const questionContent = document.getElementById('question-content');
+            questionContent.innerHTML = `<p>${question.questionSummary}</p>`;
+
+            const analysisContent = document.getElementById('analysis-content');
+            // Filter to show only distractors with >10% response rate
+            const significantDistractors = question.distractors.filter(d => d.percentage > 10);
+            analysisContent.innerHTML = `
+                <div class="p-4 bg-green-100 border-l-4 border-green-500 rounded-r-lg">
+                    <p class="font-bold text-green-800">Correct Answer: ${question.correctAnswer}</p>
+                    <p class="text-green-700">${question.correctPercentage}% of students answered correctly.</p>
+                </div>
+                ${significantDistractors.map(d => `
+                    <div class="p-4 bg-red-100 border-l-4 border-red-500 rounded-r-lg">
+                        <p class="font-bold text-red-800">Incorrect Answer: ${d.choice} (${d.percentage}%)</p>
+                        <p class="text-red-700 mt-2"><span class="font-semibold">Likely Misconception:</span> ${d.misconception}</p>
+                    </div>
+                `).join('')}
+            `;
+
+            document.getElementById('prev-btn').disabled = currentQuestionIndex === 0;
+            document.getElementById('next-btn').disabled = currentQuestionIndex === itemAnalysisData.length - 1;
+            document.getElementById('question-select').value = currentQuestionIndex;
+
+            // Render the Easy Win section
+            const easyWinContent = document.getElementById('easy-win-content');
+            const topMisconception = question.distractors[0]?.misconception.toLowerCase() || '';
+            let easyWinTip = easyWinStrategies['default'].tip; // Default tip
+
+            for (const key in easyWinStrategies) {
+                if (topMisconception.includes(key)) {
+                    easyWinTip = easyWinStrategies[key].tip;
+                    break;
+                }
+            }
+            easyWinContent.innerHTML = `<p>${easyWinTip}</p>`;
+        }
+
+        function populateSelect() {
+            const select = document.getElementById('question-select');
+            select.innerHTML = '';
+            itemAnalysisData.forEach((q, index) => {
+                const option = document.createElement('option');
+                option.value = index;
+                option.innerText = `Question ${q.questionNumber}`;
+                select.appendChild(option);
+            });
+        }
+        
+        function getParetoAnalysis() {
+            const allDistractors = itemAnalysisData.flatMap(q => 
+                q.distractors.map(d => ({
+                    ...d,
+                    questionNumber: q.questionNumber,
+                }))
+            );
+            allDistractors.sort((a, b) => b.percentage - a.percentage);
+            return allDistractors.slice(0, 4);
+        }
+
+        function exportPlan() {
+            const topMisconceptions = getParetoAnalysis();
+            const reteachingStrategies = {
+                'fractions and decimals to add': { warmUp: "Use a number line with both fractions (e.g., 1/4, 1/2, 3/4) and decimals (0.25, 0.5, 0.75) marked. Ask students to match equivalent values.", homework: "Provide a table with two columns, one for fractions and one for decimals, with some values missing. Students must fill in the equivalent form." },
+                'dividing a whole number by a fraction': { warmUp: "Pose a simple story problem: 'I have 2 pizzas. If each person gets 1/4 of a pizza, how many people can I feed?' Have students draw a picture to solve before showing the algorithm (2 ÷ 1/4 = 2 x 4).", homework: "Give students problems like 4 ÷ 1/3 and 1/3 ÷ 4. Have them draw a model for each to see the difference." },
+                'x-axis, y-axis, x-coordinate': { warmUp: "Label a large coordinate plane in the classroom. Have students take turns standing at the 'origin', walking along the 'x-axis', and pointing to a specific 'y-coordinate'.", homework: "Provide a worksheet with a coordinate plane and have students label the origin, x-axis, y-axis, and all four quadrants." },
+                'subtracting only one width': { warmUp: "Give students a rectangle with length and width labeled. Ask them to write down all four side lengths before adding them up to find the perimeter.", homework: "Provide perimeter problems where the perimeter and one side are given. Have them use the formula P = 2L + 2W to solve for the missing side." },
+                'default': { warmUp: "Review the specific vocabulary or concept from the question using a quick matching game or whiteboard race.", homework: "Provide 3-5 practice problems that are similar in structure to the original question." }
+            };
+            
+            let planContent = `
+                <h1 style="font-size: 24px; font-weight: bold; margin-bottom: 16px;">High-Leverage Re-teaching Plan</h1>
+                <p style="margin-bottom: 24px;">Based on the 80/20 principle, focusing on these key misconceptions will have the greatest impact on student understanding.</p>
+            `;
+
+            topMisconceptions.forEach((item, index) => {
+                let strategyKey = 'default';
+                const misconceptionText = item.misconception.toLowerCase();
+                
+                if (misconceptionText.includes("fractions and decimals")) strategyKey = 'fractions and decimals to add';
+                else if (misconceptionText.includes("dividing a whole number by a fraction")) strategyKey = 'dividing a whole number by a fraction';
+                else if (misconceptionText.includes("x-axis, y-axis, x-coordinate")) strategyKey = 'x-axis, y-axis, x-coordinate';
+                else if (misconceptionText.includes("subtracting only one width")) strategyKey = 'subtracting only one width';
+                
+                const strategy = reteachingStrategies[strategyKey];
+
+                planContent += `
+                    <div style="border: 1px solid #ccc; border-radius: 8px; padding: 16px; margin-bottom: 16px; page-break-inside: avoid;">
+                        <h2 style="font-size: 20px; font-weight: bold; margin-bottom: 8px;">Reteaching Opportunity #${index + 1}</h2>
+                        <p style="margin-bottom: 8px;"><strong>Related to Question(s) like #${item.questionNumber}:</strong> ${item.percentage}% of students chose an answer indicating this misconception.</p>
+                        <p style="margin-bottom: 12px;"><strong>Misconception:</strong> ${item.misconception}</p>
+                        <div style="background-color: #f0f9ff; padding: 12px; border-radius: 6px;">
+                            <h3 style="font-size: 16px; font-weight: bold; color: #0284c7; margin-bottom: 8px;">Suggested Warm-Up</h3>
+                            <p>${strategy.warmUp}</p>
+                        </div>
+                        <div style="background-color: #f0f9ff; padding: 12px; border-radius: 6px; margin-top: 12px;">
+                            <h3 style="font-size: 16px; font-weight: bold; color: #0284c7; margin-bottom: 8px;">Suggested Homework/Practice</h3>
+                            <p>${strategy.homework}</p>
+                        </div>
+                    </div>
+                `;
+            });
+
+            const newWindow = window.open('', '', 'width=800,height=600');
+            newWindow.document.write(
+                '<html><head><title>Re-teaching Plan</title><style>@media print { body { font-family: sans-serif; } .no-print { display: none; } }</style></head>' +
+                '<body style="font-family: sans-serif; padding: 20px;">' +
+                planContent +
+                '<button class="no-print" onclick="window.print()" style="padding: 10px 20px; font-size: 16px; cursor: pointer;">Print Plan</button>' +
+                '</body></html>'
+            );
+            newWindow.document.close();
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            processData();
+            populateSelect();
+            renderQuestion();
+
+            document.getElementById('loader-container').style.display = 'none';
+            document.getElementById('app-container').classList.remove('hidden');
+
+            document.getElementById('next-btn').addEventListener('click', () => {
+                if (currentQuestionIndex < itemAnalysisData.length - 1) {
+                    currentQuestionIndex++;
+                    renderQuestion();
+                }
+            });
+
+            document.getElementById('prev-btn').addEventListener('click', () => {
+                if (currentQuestionIndex > 0) {
+                    currentQuestionIndex--;
+                    renderQuestion();
+                }
+            });
+
+            document.getElementById('question-select').addEventListener('change', (e) => {
+                currentQuestionIndex = parseInt(e.target.value, 10);
+                renderQuestion();
+            });
+            
+            document.getElementById('export-btn').addEventListener('click', exportPlan);
+        });
+    </script>
+</body>
+</html>
